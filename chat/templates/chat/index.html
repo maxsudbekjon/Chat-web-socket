@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            margin: 0;
+        }
+        .chat-container {
+            width: 350px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: #4a47a3;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 18px;
+        }
+        #chat-box {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            max-width: 80%;
+            padding: 10px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .user-message {
+            align-self: flex-end;
+            background: #4a47a3;
+            color: white;
+        }
+        .incoming-message {
+            align-self: flex-start;
+            background: #f1f1f1;
+            color: black;
+        }
+        .chat-input {
+            display: flex;
+            border-top: 1px solid #ddd;
+            padding: 10px;
+            background: white;
+        }
+        #message-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        #send-button {
+            background: #4a47a3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        #send-button:hover {
+            background: #3a3796;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">WebSocket Chat</div>
+        <div id="chat-box"></div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="Xabar yozing...">
+            <button id="send-button">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = new WebSocket("ws://localhost:8000/ws/chat/");
+        const chatBox = document.getElementById("chat-box");
+        const messageInput = document.getElementById("message-input");
+        const sendButton = document.getElementById("send-button");
+
+        socket.onopen = function(event) {
+            console.log("WebSocket ochildi!");
+        };
+
+        socket.onmessage = function(event) {
+            const messageData = JSON.parse(event.data);
+            const messageElement = document.createElement("div");
+            messageElement.textContent = messageData.message;
+            messageElement.classList.add("message", "incoming-message");
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        sendButton.onclick = function() {
+            const message = messageInput.value;
+            if (message) {
+                const messageElement = document.createElement("div");
+                messageElement.textContent = message;
+                messageElement.classList.add("message", "user-message");
+                chatBox.appendChild(messageElement);
+                socket.send(JSON.stringify({ message: message }));
+                messageInput.value = "";
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        };
+    </script>
+</body>
+</html>
