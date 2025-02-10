@@ -3,127 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Chat</title>
+    <title>Chat</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             height: 100vh;
-            background: linear-gradient(to right, #667eea, #764ba2);
             margin: 0;
         }
-        .chat-container {
-            width: 350px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .chat-header {
-            background: #4a47a3;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            font-size: 18px;
-        }
-        #chat-box {
-            height: 400px;
-            overflow-y: auto;
+        #user-list, #chat-container {
+            border: 1px solid #ccc;
             padding: 10px;
+        }
+        #user-list {
+            width: 30%;
+            overflow-y: auto;
+        }
+        #chat-container {
+            width: 70%;
             display: flex;
             flex-direction: column;
+        }
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
         }
         .message {
-            max-width: 80%;
-            padding: 10px;
-            border-radius: 20px;
-            margin-bottom: 10px;
-            font-size: 14px;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            max-width: 70%;
         }
-        .user-message {
+        .self {
+            background-color: #dcf8c6;
             align-self: flex-end;
-            background: #4a47a3;
-            color: white;
+            text-align: right;
         }
-        .incoming-message {
+        .other {
+            background-color: #f1f0f0;
             align-self: flex-start;
-            background: #f1f1f1;
-            color: black;
         }
-        .chat-input {
+        #input-container {
             display: flex;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background: white;
         }
         #message-input {
-            flex: 1;
+            flex-grow: 1;
             padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            outline: none;
         }
         #send-button {
-            background: #4a47a3;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 20px;
-            margin-left: 10px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        #send-button:hover {
-            background: #3a3796;
+            padding: 8px;
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">WebSocket Chat</div>
-        <div id="chat-box"></div>
-        <div class="chat-input">
-            <input type="text" id="message-input" placeholder="Xabar yozing...">
-            <button id="send-button">➤</button>
+    <div id="user-list">
+        <h3>Online Users</h3>
+        <ul id="users"></ul>
+    </div>
+    <div id="chat-container">
+        <h3 id="chat-title">Chat</h3>
+        <div id="messages"></div>
+        <div id="input-container">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button id="send-button">Send</button>
         </div>
     </div>
 
     <script>
-        const socket = new WebSocket("ws://localhost:8000/ws/chat/");
-        const chatBox = document.getElementById("chat-box");
-        const messageInput = document.getElementById("message-input");
-        const sendButton = document.getElementById("send-button");
+        const ws = new WebSocket("ws://0.0.0.0:8000/ws/chat/");
+        let username = prompt("Enter your username:");
+        let currentChatUser = null;
 
-        socket.onopen = function(event) {
-            console.log("WebSocket ochildi!");
+        ws.onopen = () => {
+            ws.send(JSON.stringify({"action": "set_username", "username": username}));
         };
 
-        socket.onmessage = function(event) {
-            const messageData = JSON.parse(event.data);
-            const messageElement = document.createElement("div");
-            messageElement.textContent = messageData.message;
-            messageElement.classList.add("message", "incoming-message");
-            chatBox.appendChild(messageElement);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        };
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
 
-        sendButton.onclick = function() {
-            const message = messageInput.value;
-            if (message) {
-                const messageElement = document.createElement("div");
-                messageElement.textContent = message;
-                messageElement.classList.add("message", "user-message");
-                chatBox.appendChild(messageElement);
-                socket.send(JSON.stringify({ message: message }));
-                messageInput.value = "";
-                chatBox.scrollTop = chatBox.scrollHeight;
+            if (data.users) {
+                updateUsersList(data.users);
+            } else if (data.action === "chat_started") {
+                currentChatUser = data.target_user;
+                document.getElementById("chat-title").innerText = currentChatUser;
+                document.getElementById("messages").innerHTML = "";
+            } else if (data.message) {
+                displayMessage(data.message, data.self);
             }
         };
+
+        function updateUsersList(users) {
+            const userList = document.getElementById("users");
+            userList.innerHTML = "";
+            users.forEach(user => {
+                if (user !== username) {
+                    const li = document.createElement("li");
+                    li.innerText = user;
+                    li.onclick = () => startChat(user);
+                    userList.appendChild(li);
+                }
+            });
+        }
+
+        function startChat(targetUser) {
+            ws.send(JSON.stringify({"action": "start_chat", "target_user": targetUser}));
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById("message-input");
+            const message = messageInput.value.trim();
+            if (message && currentChatUser) {
+                ws.send(JSON.stringify({"action": "send_message", "message": message}));
+                messageInput.value = "";
+            }
+        }
+
+        function displayMessage(message, isSelf) {
+            const messagesContainer = document.getElementById("messages");
+            const msgDiv = document.createElement("div");
+            msgDiv.classList.add("message", isSelf ? "self" : "other");
+            msgDiv.innerText = message;
+            messagesContainer.appendChild(msgDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        document.getElementById("send-button").addEventListener("click", sendMessage);
+        document.getElementById("message-input").addEventListener("keypress", (event) => {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
     </script>
 </body>
 </html>
